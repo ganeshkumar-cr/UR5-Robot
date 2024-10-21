@@ -1,33 +1,34 @@
 clc;
 clear;
-% Define DH parameters (a, alpha, d, theta)
+%% Define DH parameters for UR 5 robot(a, alpha, d, theta)
 a = [0 0 0.5 0.5 0 0]; % Link length
 alpha = [0 pi/2 0 0 pi/2 -pi/2]; % Link twist
 d = [0.1 0 0 0.1 0.1 0.1]; % Link offset
 theta = [0, 0, 0, 0, 0, 0]; % Joint angle
-
-% Set convergence criteria
+%% Performing inverse Kinematics for the UR5 robot
+% 1. Set convergence criteria
 max_iterations = 100;
 epsilon = 1e-6;
 
-% Initialize joint angles (initial guess)
+% 2. Initialize joint angles (initial guess)
+
 theta_guess = zeros(1, 6); 
 final_joint_angles = zeros(10, 6);
-%Get Initial Position;
+% 3. Get Initial Position;
 homeposition = forward_kinematics(theta_guess, a, alpha, d, theta);
-% Center point of the circle
+% 4. Center point of the circle for State space trajectory
 center = homeposition';
 
 radius = 0.2; % Radius of the circle
-num_points = 10; % Number of waypoints (adjust as needed)
+num_points = 100; % Number of waypoints (adjust as needed)
 t = linspace(0, 2*pi, num_points); % Angle increment to generate waypoints
 
-% Calculate waypoints
+% 5. Calculate waypoints for the path
 x_points = repmat(center(1), 1, num_points); % All points have the same x-coordinate
 y_points = center(2) + radius * cos(t);
 z_points = center(3) + radius * sin(t);
 
-% Target end-effector waypoints of moving in circle:
+% 6. Target end-effector waypoints of moving in circle:
 for j=1:num_points
     target_pos = [x_points(j),y_points(j), z_points(j)]';
 
@@ -50,6 +51,7 @@ end
 disp('Final joint angles:');
 disp(final_joint_angles);
 
+%% Plot and Animation of UR5 robot
 % Initialize figure
 figure;
 hold on;
@@ -58,13 +60,17 @@ xlabel('X');
 ylabel('Y');
 zlabel('Z');
 axis equal;
-plot3(x_points, y_points, z_points, 'b','LineWidth', 1); % Plot circle
+plot3(x_points, y_points, z_points, 'b', 'LineWidth', 1); % Plot circle
 view(3);
 
-% Draw the robot
-for k= 1: num_points
-    theta_f = final_joint_angles(k,:);
+% Draw the robot continuously
+for k = 1:num_points
+    theta_f = final_joint_angles(k, :);
+    cla; % Clear current axes
+    plot3(x_points, y_points, z_points, 'b', 'LineWidth', 1); % Plot circle again to keep it visible
     draw_robot(a, alpha, d, theta_f);
+    pause(0.05); % Pause for 0.01 seconds to control the animation speed
+    drawnow; % Update the figure window to show the animation
 end
 
 % Function to compute forward kinematics
@@ -102,20 +108,20 @@ end
 function draw_robot(a, alpha, d, theta)
     % Initialize transformation matrix
     T = eye(4);
-    positions = zeros(3, length(a)+1);
+    positions = zeros(3, length(a) + 1);
     
     % Loop through each link
     for i = 1:length(a)
         % Compute transformation matrix for current link
-        A = [cos(theta(i)),             -sin(theta(i))*cos(alpha(i)),    sin(theta(i))*sin(alpha(i)),    a(i)*cos(theta(i));
-             sin(theta(i)),             cos(theta(i))*cos(alpha(i)),     -cos(theta(i))*sin(alpha(i)),   a(i)*sin(theta(i));
-             0,                         sin(alpha(i)),                   cos(alpha(i)),                   d(i);
-             0,                         0,                               0,                               1];
+        A = [cos(theta(i)), -sin(theta(i)) * cos(alpha(i)), sin(theta(i)) * sin(alpha(i)), a(i) * cos(theta(i));
+             sin(theta(i)), cos(theta(i)) * cos(alpha(i)), -cos(theta(i)) * sin(alpha(i)), a(i) * sin(theta(i));
+             0, sin(alpha(i)), cos(alpha(i)), d(i);
+             0, 0, 0, 1];
         
         % Update overall transformation matrix
         T = T * A;
         % Extract position of the end of current link
-        positions(:, i+1) = T(1:3, 4);
+        positions(:, i + 1) = T(1:3, 4);
     end
     
     % Plot the robot
@@ -132,38 +138,31 @@ function draw_robot(a, alpha, d, theta)
         if i == length(a)
             % End effector frame
             frame_length = 0.1;
-            x_axis = T(1:3, 1) * frame_length + positions(:, i+1);
-            y_axis = T(1:3, 2) * frame_length + positions(:, i+1);
-            z_axis = T(1:3, 3) * frame_length + positions(:, i+1);
-            plot3([positions(1, i+1) x_axis(1)], [positions(2, i+1) x_axis(2)], [positions(3, i+1) x_axis(3)], 'r', 'LineWidth', 2);
-            plot3([positions(1, i+1) y_axis(1)], [positions(2, i+1) y_axis(2)], [positions(3, i+1) y_axis(3)], 'g', 'LineWidth', 2);
-            plot3([positions(1, i+1) z_axis(1)], [positions(2, i+1) z_axis(2)], [positions(3, i+1) z_axis(3)], 'b', 'LineWidth', 2);
+            x_axis = T(1:3, 1) * frame_length + positions(:, i + 1);
+            y_axis = T(1:3, 2) * frame_length + positions(:, i + 1);
+            z_axis = T(1:3, 3) * frame_length + positions(:, i + 1);
+            plot3([positions(1, i + 1) x_axis(1)], [positions(2, i + 1) x_axis(2)], [positions(3, i + 1) x_axis(3)], 'r', 'LineWidth', 2);
+            plot3([positions(1, i + 1) y_axis(1)], [positions(2, i + 1) y_axis(2)], [positions(3, i + 1) y_axis(3)], 'g', 'LineWidth', 2);
+            plot3([positions(1, i + 1) z_axis(1)], [positions(2, i + 1) z_axis(2)], [positions(3, i + 1) z_axis(3)], 'b', 'LineWidth', 2);
         else
             % Plot coordinate frame
             frame_length = 0.05;
-            x_axis = T(1:3, 1) * frame_length + positions(:, i+1);
-            y_axis = T(1:3, 2) * frame_length + positions(:, i+1);
-            z_axis = T(1:3, 3) * frame_length + positions(:, i+1);
-            plot3([positions(1, i+1) x_axis(1)], [positions(2, i+1) x_axis(2)], [positions(3, i+1) x_axis(3)], 'r', 'LineWidth', 2);
-            plot3([positions(1, i+1) y_axis(1)], [positions(2, i+1) y_axis(2)], [positions(3, i+1) y_axis(3)], 'g', 'LineWidth', 2);
-            plot3([positions(1, i+1) z_axis(1)], [positions(2, i+1) z_axis(2)], [positions(3, i+1) z_axis(3)], 'b', 'LineWidth', 2);
+            x_axis = T(1:3, 1) * frame_length + positions(:, i + 1);
+            y_axis = T(1:3, 2) * frame_length + positions(:, i + 1);
+            z_axis = T(1:3, 3) * frame_length + positions(:, i + 1);
+            plot3([positions(1, i + 1) x_axis(1)], [positions(2, i + 1) x_axis(2)], [positions(3, i + 1) x_axis(3)], 'r', 'LineWidth', 2);
+            plot3([positions(1, i + 1) y_axis(1)], [positions(2, i + 1) y_axis(2)], [positions(3, i + 1) y_axis(3)], 'g', 'LineWidth', 2);
+            plot3([positions(1, i + 1) z_axis(1)], [positions(2, i + 1) z_axis(2)], [positions(3, i + 1) z_axis(3)], 'b', 'LineWidth', 2);
             
             % Connect to previous joint
-            plot3([positions(1, i) positions(1, i+1)], [positions(2, i) positions(2, i+1)], [positions(3, i) positions(3, i+1)], 'k');
+            plot3([positions(1, i) positions(1, i + 1)], [positions(2, i) positions(2, i + 1)], [positions(3, i) positions(3, i + 1)], 'k');
         end
     end
     
     % Adjust axis limits to ensure all frames are fully visible
     max_lim = max(positions, [], 2);
     min_lim = min(positions, [], 2);
-    xlim([min_lim(1)-0.3, max_lim(1)+0.3]);
-    ylim([min_lim(2)-0.5, max_lim(2)+0.5]);
-    zlim([min_lim(3)-0.3, max_lim(3)+0.3]);
-    
-    % Pause to allow for animation and control animation speed
-    pause(2); % Adjust the pause duration to control animation speed
-    hold off;
+    xlim([min_lim(1) - 0.3, max_lim(1) + 0.3]);
+    ylim([min_lim(2) - 0.5, max_lim(2) + 0.5]);
+    zlim([min_lim(3) - 0.3, max_lim(3) + 0.3]);
 end
-
-
-
